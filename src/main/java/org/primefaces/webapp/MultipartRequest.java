@@ -1,17 +1,25 @@
-/*
- * Copyright 2009-2013 PrimeTek.
+/**
+ * The MIT License
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Copyright (c) 2009-2019 PrimeTek
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 package org.primefaces.webapp;
 
@@ -27,17 +35,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
-
 import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import java.util.Map.Entry;
 
 public class MultipartRequest extends HttpServletRequestWrapper {
 
-    private static final Logger logger = Logger.getLogger(MultipartRequest.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(MultipartRequest.class.getName());
 
     private Map<String, List<String>> formParams;
     private Map<String, List<FileItem>> fileParams;
@@ -45,8 +52,8 @@ public class MultipartRequest extends HttpServletRequestWrapper {
 
     public MultipartRequest(HttpServletRequest request, ServletFileUpload servletFileUpload) throws IOException {
         super(request);
-        formParams = new LinkedHashMap<String, List<String>>();
-        fileParams = new LinkedHashMap<String, List<FileItem>>();
+        formParams = new LinkedHashMap<>();
+        fileParams = new LinkedHashMap<>();
 
         parseRequest(request, servletFileUpload);
     }
@@ -56,39 +63,19 @@ public class MultipartRequest extends HttpServletRequestWrapper {
         try {
             List<FileItem> fileItems = servletFileUpload.parseRequest(request);
 
-            for(FileItem item : fileItems) {
-                if(item.isFormField())
-                    addFormParam(item);
-                else
-                    addFileParam(item);
+            for (FileItem item : fileItems) {
+                if (item.isFormField()) {
+                    List<String> items = formParams.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>());
+                    items.add(getItemString(item));
+                }
+                else {
+                    List<FileItem> items = fileParams.computeIfAbsent(item.getFieldName(), k -> new ArrayList<>());
+                    items.add(item);
+                }
             }
-
-        } catch (FileUploadException e) {
-            logger.log(Level.SEVERE, "Error in parsing fileupload request", e);
-
-            throw new IOException(e.getMessage(), e);
         }
-    }
-
-    private void addFileParam(FileItem item) {
-        if(fileParams.containsKey(item.getFieldName())) {
-            fileParams.get(item.getFieldName()).add(item);
-        }
-        else {
-            List<FileItem> items = new ArrayList<FileItem>();
-            items.add(item);
-            fileParams.put(item.getFieldName(), items);
-        }
-    }
-
-    private void addFormParam(FileItem item) {
-        if(formParams.containsKey(item.getFieldName())) {
-            formParams.get(item.getFieldName()).add(getItemString(item));
-        }
-        else {
-            List<String> items = new ArrayList<String>();
-            items.add(getItemString(item));
-            formParams.put(item.getFieldName(), items);
+        catch (FileUploadException e) {
+            throw new IOException("Error in parsing fileupload request", e);
         }
     }
 
@@ -96,17 +83,18 @@ public class MultipartRequest extends HttpServletRequestWrapper {
         try {
             String characterEncoding = getRequest().getCharacterEncoding();
             return (characterEncoding == null) ? item.getString() : item.getString(characterEncoding);
-        } catch (UnsupportedEncodingException e) {
-            logger.log(Level.SEVERE, "Unsupported character encoding " + getRequest().getCharacterEncoding(), e);
+        }
+        catch (UnsupportedEncodingException e) {
+            LOGGER.log(Level.SEVERE, "Unsupported character encoding " + getRequest().getCharacterEncoding(), e);
             return item.getString();
         }
     }
 
     @Override
     public String getParameter(String name) {
-        if(formParams.containsKey(name)) {
+        if (formParams.containsKey(name)) {
             List<String> values = formParams.get(name);
-            if(values.isEmpty()) {
+            if (values.isEmpty()) {
                 return "";
             }
             else {
@@ -120,11 +108,11 @@ public class MultipartRequest extends HttpServletRequestWrapper {
 
     @Override
     public Map getParameterMap() {
-        if(parameterMap == null) {
-            Map<String,String[]> map = new LinkedHashMap<String, String[]>();
+        if (parameterMap == null) {
+            Map<String, String[]> map = new LinkedHashMap<>();
 
-            for(String formParam : formParams.keySet()) {
-                map.put(formParam, formParams.get(formParam).toArray(new String[0]));
+            for (Entry<String, List<String>> entry : formParams.entrySet()) {
+                map.put(entry.getKey(), entry.getValue().toArray(new String[0]));
             }
 
             map.putAll(super.getParameterMap());
@@ -137,11 +125,11 @@ public class MultipartRequest extends HttpServletRequestWrapper {
 
     @Override
     public Enumeration getParameterNames() {
-        Set<String> paramNames = new LinkedHashSet<String>();
+        Set<String> paramNames = new LinkedHashSet<>();
         paramNames.addAll(formParams.keySet());
 
         Enumeration<String> original = super.getParameterNames();
-        while(original.hasMoreElements()) {
+        while (original.hasMoreElements()) {
             paramNames.add(original.nextElement());
         }
 
@@ -150,9 +138,9 @@ public class MultipartRequest extends HttpServletRequestWrapper {
 
     @Override
     public String[] getParameterValues(String name) {
-        if(formParams.containsKey(name)) {
+        if (formParams.containsKey(name)) {
             List<String> values = formParams.get(name);
-            if(values.isEmpty()) {
+            if (values.isEmpty()) {
                 return new String[0];
             }
             else {
@@ -165,7 +153,7 @@ public class MultipartRequest extends HttpServletRequestWrapper {
     }
 
     public FileItem getFileItem(String name) {
-        if(fileParams.containsKey(name)) {
+        if (fileParams.containsKey(name)) {
             List<FileItem> items = fileParams.get(name);
 
             return items.get(0);
@@ -173,5 +161,13 @@ public class MultipartRequest extends HttpServletRequestWrapper {
         else {
             return null;
         }
+    }
+
+    public List<FileItem> getFileItems(String name) {
+        if (fileParams.containsKey(name)) {
+            return fileParams.get(name);
+        }
+
+        return Collections.emptyList();
     }
 }

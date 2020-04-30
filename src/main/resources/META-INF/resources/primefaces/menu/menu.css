@@ -11,6 +11,10 @@
     z-index: 100000;
 }
 
+.ui-menu.ui-menu-dynamic-maxheight {
+    overflow-y: auto;
+}
+
 .ui-menu-list {
     position:static;
 }
@@ -228,6 +232,14 @@
     width: 92%;
 }
 
+.ui-megamenu .ui-widget-header span {
+    display: block;
+    float: left;
+    font-size: 1em;
+    margin: 0 auto;
+    padding: 0.4em 0.3em;
+}
+
 /** Breadcrumb **/
 .ui-breadcrumb {
     margin: 0;
@@ -318,6 +330,11 @@
     float:left;
 }
 
+/** SplitButtonMenu **/
+.ui-splitbuttonmenu {
+    width: auto;
+}
+
 /** PanelMenu **/
 .ui-panelmenu { 
     width: auto; 
@@ -332,7 +349,6 @@
     cursor: pointer; 
     position: relative; 
     margin: 0;
-    zoom: 1; 
 }
 
 .ui-panelmenu .ui-panelmenu-header a { 
@@ -354,7 +370,6 @@
     position: relative; 
     top: 1px; 
     overflow: auto; 
-    zoom: 1; 
     outline: none;
 }
 
@@ -421,7 +436,6 @@
 /** TabMenu **/
 .ui-tabmenu { 
     position: relative; 
-    zoom: 1; 
 }
 
 .ui-tabmenu .ui-tabmenu-nav { 

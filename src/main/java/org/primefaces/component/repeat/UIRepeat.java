@@ -1,64 +1,36 @@
-/*
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+/**
+ * The MIT License
  *
- * Copyright (c) 1997-2013 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009-2019 PrimeTek
  *
- * The contents of this file are subject to the terms of either the GNU
- * General Public License Version 2 only ("GPL") or the Common Development
- * and Distribution License("CDDL") (collectively, the "License").  You
- * may not use this file except in compliance with the License.  You can
- * obtain a copy of the License at
- * https://glassfish.dev.java.net/public/CDDL+GPL_1_1.html
- * or packager/legal/LICENSE.txt.  See the License for the specific
- * language governing permissions and limitations under the License.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- * When distributing the software, include this License Header Notice in each
- * file and include the License file at packager/legal/LICENSE.txt.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * GPL Classpath Exception:
- * Oracle designates this particular file as subject to the "Classpath"
- * exception as provided by Oracle in the GPL Version 2 section of the License
- * file that accompanied this code.
- *
- * Modifications:
- * If applicable, add the following below the License Header, with the fields
- * enclosed by brackets [] replaced by your own identifying information:
- * "Portions Copyright [year] [name of copyright owner]"
- *
- * Contributor(s):
- * If you wish your version of this file to be governed by only the CDDL or
- * only the GPL Version 2, indicate your decision by adding "[Contributor]
- * elects to include this software in this distribution under the [CDDL or GPL
- * Version 2] license."  If you don't indicate a single choice of license, a
- * recipient has the option to distribute your version of this file under
- * either the CDDL, the GPL Version 2 or to extend the choice of license to
- * its licensees as provided above.  However, if you add GPL Version 2 code
- * and therefore, elected the GPL Version 2 license, then the option applies
- * only if the new code is made subject to such option by the copyright
- * holder.
- *
- *
- * This file incorporates work covered by the following copyright and
- * permission notice:
- *
- * Copyright 2005-2007 The Apache Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
-
 package org.primefaces.component.repeat;
 
-import com.sun.faces.facelets.tag.IterationStatus;
+import java.io.IOException;
+import java.sql.ResultSet;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import javax.el.ValueExpression;
 import javax.faces.FacesException;
@@ -67,10 +39,10 @@ import javax.faces.application.FacesMessage;
 import javax.faces.component.ContextCallback;
 import javax.faces.component.EditableValueHolder;
 import javax.faces.component.UIComponent;
-import javax.faces.component.UIData;
 import javax.faces.component.UINamingContainer;
-import javax.faces.component.visit.VisitContext;
+import javax.faces.component.behavior.ClientBehaviorContext;
 import javax.faces.component.visit.VisitCallback;
+import javax.faces.component.visit.VisitContext;
 import javax.faces.component.visit.VisitHint;
 import javax.faces.component.visit.VisitResult;
 import javax.faces.context.FacesContext;
@@ -86,27 +58,29 @@ import javax.faces.model.ListDataModel;
 import javax.faces.model.ResultSetDataModel;
 import javax.faces.model.ScalarDataModel;
 import javax.faces.render.Renderer;
-import java.io.IOException;
-import java.io.Serializable;
-import java.sql.ResultSet;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
-import static javax.faces.component.UINamingContainer.getSeparatorChar;
+import org.primefaces.component.api.IterationStatus;
+import org.primefaces.component.api.SavedState;
 import org.primefaces.component.api.UITabPanel;
+import org.primefaces.model.IterableDataModel;
 
-
+/**
+ * Copied from Mojarra, to port bugfixes from newer Mojarra versions, to users of older Mojarra versions.
+ * Actually nosense as those bugs should be fixed in Mojarra and updated in the containers...
+ *
+ * Also see: https://code.google.com/archive/p/primefaces/issues/7190
+ * Mojarra's implementation if ui:repeat needs to check if ui:repeat is nested in another repeat component, see: {@link #isNestedInIterator}.
+ * This is not required in the MyFaces impl.
+ * Would be nice if Mojarra could enhance their implementation some day.
+ */
+//CHECKSTYLE:OFF
 public class UIRepeat extends UINamingContainer {
 
     public static final String COMPONENT_TYPE = "org.primefaces.component.UIRepeat";
 
     public static final String COMPONENT_FAMILY = "org.primefaces.component";
 
-    private final static DataModel EMPTY_MODEL = new ListDataModel<Object>(Collections.emptyList());
+    private final static DataModel EMPTY_MODEL =
+          new ListDataModel<>(Collections.emptyList());
 
     // our data
     private Object value;
@@ -124,15 +98,12 @@ public class UIRepeat extends UINamingContainer {
     private Integer end;
     private Integer step;
     private Integer size;
-    private Boolean isNested = null;
-    
-    private Map<String, SavedState> initialChildState;
-    private String initialClientId;
 
     public UIRepeat() {
-        this.setRendererType("org.primefaces.component.UIRepeatRenderer");
+        this.setRendererType(null);
     }
 
+    @Override
     public String getFamily() {
         return COMPONENT_FAMILY;
     }
@@ -255,19 +226,54 @@ public class UIRepeat extends UINamingContainer {
         if (this.model == null) {
             Object val = this.getValue();
             if (val == null) {
-                this.model = EMPTY_MODEL;
+                Integer begin = getBegin();
+                Integer end = getEnd();
+
+                if (end == null) {
+                    if (begin == null) {
+                        this.model = EMPTY_MODEL;
+                    } else {
+                        throw new IllegalArgumentException("end");
+                    }
+                } else {
+                    int b = (begin == null) ? 0 : begin;
+                    int e = end;
+                    int d = (b < e) ? 1 : (b > e) ? -1 : 0;
+                    int s = Math.abs(e - b) + 1;
+                    Integer[] array = new Integer[s];
+
+                    for (int i = 0; i < s; i++) {
+                        array[i] = b + (i * d);
+                    }
+
+                    this.model = new ArrayDataModel<>(array);
+                    setBegin(0);
+                    setEnd(s);
+                }
             } else if (val instanceof DataModel) {
                 //noinspection unchecked
                 this.model = (DataModel<Object>) val;
             } else if (val instanceof List) {
                 //noinspection unchecked
-                this.model = new ListDataModel<Object>((List<Object>) val);
+                this.model = new ListDataModel<>((List<Object>) val);
             } else if (Object[].class.isAssignableFrom(val.getClass())) {
-                this.model = new ArrayDataModel<Object>((Object[]) val);
+                this.model = new ArrayDataModel<>((Object[]) val);
             } else if (val instanceof ResultSet) {
                 this.model = new ResultSetDataModel((ResultSet) val);
+            } else if (val instanceof Iterable) {
+                this.model = new IterableDataModel<>((Iterable<?>) val);
+            } else if (val instanceof Map) {
+                this.model = new IterableDataModel<>(((Map<?, ?>) val).entrySet());
             } else {
-                this.model = new ScalarDataModel<Object>(val);
+                /* Don't support JSF2.3 CDI @FacesDataModel for now
+                DataModel<?> dataModel = createDataModel(val.getClass());
+                if (dataModel != null) {
+                    dataModel.setWrappedData(val);
+                    model = dataModel;
+                } else {
+                    model = new ScalarDataModel<>(val);
+                } */
+                 model = new ScalarDataModel<>(val);
             }
         }
         return this.model;
@@ -297,6 +303,7 @@ public class UIRepeat extends UINamingContainer {
         return this.buffer;
     }
 
+    @Override
     public String getClientId(FacesContext faces) {
         String id = super.getClientId(faces);
         if (this.index >= 0) {
@@ -346,13 +353,13 @@ public class UIRepeat extends UINamingContainer {
 
     private Map<String,SavedState> getChildState() {
         if (this.childState == null) {
-            this.childState = new HashMap<String,SavedState>();
+            this.childState = new HashMap<>();
         }
         return this.childState;
     }
     
     private void clearChildState() {
-    	this.childState = null;
+        this.childState = null;
     }
 
     private void saveChildState(FacesContext ctx) {
@@ -431,15 +438,7 @@ public class UIRepeat extends UINamingContainer {
             if (ss != null) {
                 ss.apply(evh);
             } else {
-                String childId = clientId.substring(initialClientId.length() + 1);
-                childId = childId.substring(childId.indexOf(getSeparatorChar(faces)) + 1);
-                childId = initialClientId + getSeparatorChar(faces) + childId;
-                if (initialChildState.containsKey(childId)) {
-                    SavedState initialState = initialChildState.get(childId);
-                    initialState.apply(evh);
-                } else {
-                    NullState.apply(evh);
-                }
+                SavedState.NULL_STATE.apply(evh);
             }
         }
 
@@ -465,75 +464,19 @@ public class UIRepeat extends UINamingContainer {
 
     
     private boolean isNestedInIterator() {
-        if (isNested == null) {
-            UIComponent parent = this;
-            while (null != (parent = parent.getParent())) {
-                if (parent instanceof javax.faces.component.UIData || parent.getClass().getName().endsWith("UIRepeat") 
-                        ||(parent instanceof UITabPanel && ((UITabPanel) parent).isRepeating())) {
-                    isNested = Boolean.TRUE;
-                    break;
-                }
-            }
-            if (isNested == null) {
-                isNested = Boolean.FALSE;
-            }
-            return isNested;
-        } else {
-            return isNested;
-        }
-    }
-
-    /**
-     * Save the initial child state.
-     * 
-     * <p>
-     *  In order to be able to restore each row to a pristine condition if NO
-     *  state was necessary to be saved for a given row we need to store the
-     *  initial state (a.k.a the state of the skeleton) so we can restore the
-     *  skeleton as if it was just created by the page markup.
-     * </p>
-     * 
-     * @param facesContext the Faces context. 
-     */
-    private void saveInitialChildState(FacesContext facesContext) {
-        index = -1;
-        initialChildState = new ConcurrentHashMap<String, SavedState>();
-        initialClientId = getClientId(facesContext);
-        if (getChildCount() > 0) {
-            for (UIComponent child : getChildren()) {
-                saveInitialChildState(facesContext, child);
+        UIComponent parent = this;
+        while (null != (parent = parent.getParent())) {
+            if (parent instanceof javax.faces.component.UIData || parent.getClass().getName().endsWith("UIRepeat")
+                    || (parent instanceof UITabPanel && ((UITabPanel) parent).isRepeating())) {
+                return true;
             }
         }
-    }
-
-    /**
-     * Recursively create the initial state for the given component.
-     * 
-     * @param facesContext the Faces context.
-     * @param component the UI component to save the state for.
-     * @see #saveInitialChildState(javax.faces.context.FacesContext) 
-     */
-    private void saveInitialChildState(FacesContext facesContext, UIComponent component) {
-        if (component instanceof EditableValueHolder && !component.isTransient()) {
-            String clientId = component.getClientId(facesContext);
-            SavedState state = new SavedState();
-            initialChildState.put(clientId, state);
-            state.populate((EditableValueHolder) component);
-        }
-
-        Iterator<UIComponent> iterator = component.getFacetsAndChildren();
-        while (iterator.hasNext()) {
-            saveChildState(facesContext, iterator.next());
-        }
+        return false;
     }
 
     private void setIndex(FacesContext ctx, int index) {
 
         DataModel localModel = getDataModel();
-        
-        if (index == -1 && initialChildState == null) {
-            saveInitialChildState(ctx);
-        }
         
         // save child state
         if (this.index != -1 && localModel.isRowAvailable()) {
@@ -578,7 +521,7 @@ public class UIRepeat extends UINamingContainer {
 
         // We must clear the child state if we just entered the Render Phase, and there are no error messages
         if (PhaseId.RENDER_RESPONSE.equals(phase) && !hasErrorMessages(faces)) {
-        	this.clearChildState();
+            this.clearChildState();
         }
 
         // reset index
@@ -675,6 +618,7 @@ public class UIRepeat extends UINamingContainer {
         }
     }
 
+    @Override
      public boolean invokeOnComponent(FacesContext faces, String clientId,
             ContextCallback callback) throws FacesException {
         String id = super.getClientId(faces);
@@ -784,9 +728,16 @@ public class UIRepeat extends UINamingContainer {
     }
 
     private boolean requiresRowIteration(VisitContext ctx) {
-
-        return !ctx.getHints().contains(VisitHint.SKIP_ITERATION);
-
+        boolean shouldIterate = !ctx.getHints().contains(VisitHint.SKIP_ITERATION); 
+        if (!shouldIterate) {
+            FacesContext faces = ctx.getFacesContext();  
+            String sourceId = faces.getExternalContext().getRequestParameterMap().get(
+                    ClientBehaviorContext.BEHAVIOR_SOURCE_PARAM_NAME);  
+            boolean containsSource = sourceId != null ? sourceId.startsWith(super.getClientId(faces) + getSeparatorChar(faces)): false;  
+            return containsSource;
+        } else {
+            return shouldIterate;
+        }
     }
 
     // Tests whether we need to visit our children as part of
@@ -874,6 +825,7 @@ public class UIRepeat extends UINamingContainer {
     }
 
 
+    @Override
     public void processDecodes(FacesContext faces) {
         if (!this.isRendered())
             return;
@@ -883,12 +835,14 @@ public class UIRepeat extends UINamingContainer {
         this.decode(faces);
     }
 
+    @Override
     public void processUpdates(FacesContext faces) {
         if (!this.isRendered()) return;
         this.resetDataModel();
         this.process(faces, PhaseId.UPDATE_MODEL_VALUES);
     }
 
+    @Override
     public void processValidators(FacesContext faces) {
         if (!this.isRendered()) return;
         this.resetDataModel();
@@ -896,74 +850,6 @@ public class UIRepeat extends UINamingContainer {
         app.publishEvent(faces, PreValidateEvent.class, this);
         this.process(faces, PhaseId.PROCESS_VALIDATIONS);
         app.publishEvent(faces, PostValidateEvent.class, this);
-    }
-
-    private final static SavedState NullState = new SavedState();
-
-    // from RI
-    private final static class SavedState implements Serializable {
-
-        private Object submittedValue;
-
-        private static final long serialVersionUID = 2920252657338389849L;
-
-        Object getSubmittedValue() {
-            return (this.submittedValue);
-        }
-
-        void setSubmittedValue(Object submittedValue) {
-            this.submittedValue = submittedValue;
-        }
-
-        private boolean valid = true;
-
-        boolean isValid() {
-            return (this.valid);
-        }
-
-        void setValid(boolean valid) {
-            this.valid = valid;
-        }
-
-        private Object value;
-
-        Object getValue() {
-            return (this.value);
-        }
-
-        public void setValue(Object value) {
-            this.value = value;
-        }
-
-        private boolean localValueSet;
-
-        boolean isLocalValueSet() {
-            return (this.localValueSet);
-        }
-
-        public void setLocalValueSet(boolean localValueSet) {
-            this.localValueSet = localValueSet;
-        }
-
-        public String toString() {
-            return ("submittedValue: " + submittedValue + " value: " + value
-                    + " localValueSet: " + localValueSet);
-        }
-
-        public void populate(EditableValueHolder evh) {
-            this.value = evh.getLocalValue();
-            this.valid = evh.isValid();
-            this.submittedValue = evh.getSubmittedValue();
-            this.localValueSet = evh.isLocalValueSet();
-        }
-
-        public void apply(EditableValueHolder evh) {
-            evh.setValue(this.value);
-            evh.setValid(this.valid);
-            evh.setSubmittedValue(this.submittedValue);
-            evh.setLocalValueSet(this.localValueSet);
-        }
-
     }
 
     private static final class IndexedEvent extends FacesEvent {
@@ -980,18 +866,22 @@ public class UIRepeat extends UINamingContainer {
             this.index = index;
         }
 
+        @Override
         public PhaseId getPhaseId() {
             return (this.target.getPhaseId());
         }
 
+        @Override
         public void setPhaseId(PhaseId phaseId) {
             this.target.setPhaseId(phaseId);
         }
 
+        @Override
         public boolean isAppropriateListener(FacesListener listener) {
             return this.target.isAppropriateListener(listener);
         }
 
+        @Override
         public void processListener(FacesListener listener) {
             UIRepeat owner = (UIRepeat) this.getComponent();
             int prevIndex = owner.index;
@@ -1016,13 +906,14 @@ public class UIRepeat extends UINamingContainer {
 
     }
 
+    @Override
     public void broadcast(FacesEvent event) throws AbortProcessingException {
         if (event instanceof IndexedEvent) {
             IndexedEvent idxEvent = (IndexedEvent) event;
             this.resetDataModel();
             int prevIndex = this.index;
-            FacesContext ctx = FacesContext.getCurrentInstance();
             FacesEvent target = idxEvent.getTarget();
+            FacesContext ctx = getFacesContext();
             UIComponent source = target.getComponent();
             UIComponent compositeParent = null;
             try {
@@ -1067,10 +958,12 @@ public class UIRepeat extends UINamingContainer {
         }
     }
 
+    @Override
     public void queueEvent(FacesEvent event) {
         super.queueEvent(new IndexedEvent(this, event, this.index));
     }
 
+    @Override
     public void restoreState(FacesContext faces, Object object) {
         if (faces == null) {
             throw new NullPointerException();
@@ -1090,6 +983,7 @@ public class UIRepeat extends UINamingContainer {
         this.value = state[7];
     }
 
+    @Override
     public Object saveState(FacesContext faces) {
         resetClientIds(this);
         
@@ -1108,6 +1002,7 @@ public class UIRepeat extends UINamingContainer {
         return state;
     }
 
+    @Override
     public void encodeChildren(FacesContext faces) throws IOException {
         if (!isRendered()) {
             return;
@@ -1119,6 +1014,7 @@ public class UIRepeat extends UINamingContainer {
         this.process(faces, PhaseId.RENDER_RESPONSE);
     }
 
+    @Override
     public boolean getRendersChildren() {
         if (getRendererType() != null) {
             Renderer renderer = getRenderer(getFacesContext());
@@ -1129,4 +1025,3 @@ public class UIRepeat extends UINamingContainer {
         return true;
     }
 }
-

@@ -37,9 +37,10 @@
 }
 
 .ui-treetable .ui-treetable-toggler {
-    float: left;
-    margin-top: -2px;
+    display: inline-block;
+    vertical-align: middle;
     cursor: pointer;
+    margin-top: -5px;
 }
 
 .ui-treetable .ui-treetable-data tr.ui-state-highlight,
@@ -56,6 +57,10 @@
     border:0 none;
 }
 
+.ui-treetable-scrollable .ui-treetable-scrollable-theadclone tr th > * { 
+    display: none;
+}
+            
 .ui-treetable.ui-treetable-scrollable table {
     table-layout: fixed;
 }
@@ -84,7 +89,7 @@
     height:20px;
     padding:0px;
     cursor:col-resize;
-    background-image: url("#{resource['primefaces:spacer/dot_clear.gif']}");
+    background-image: url(data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==);
     margin: -4px -10px -4px 0px;
     float: right;
 }
@@ -161,6 +166,14 @@
   height: 0px;
 }
 
+/** Filter **/
+.ui-treetable .ui-column-filter {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin:auto;
+}
+
 /** Reflow **/
 .ui-treetable-reflow .ui-treetable-data td .ui-column-title {
     display: none;
@@ -202,6 +215,15 @@
 }
 
 /* InCell Editing */
+.ui-treetable .ui-editable-column .ui-cell-editor {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.ui-treetable .ui-editable-column .ui-treetable-toggler {
+    margin-top: 0px;
+}
+
 .ui-treetable .ui-cell-editor-input {
     display: none;
 }
@@ -215,23 +237,22 @@
 
 .ui-treetable .ui-row-editor span {
     cursor: pointer;
-    float: left;
 }
 
-.ui-treetable .ui-row-editor .ui-icon-pencil {
+.ui-treetable .ui-row-editor .ui-row-editor-pencil {
     display: inline-block;
 }
-.ui-treetable .ui-row-editing .ui-row-editor .ui-icon-pencil {
+.ui-treetable .ui-row-editing .ui-row-editor .ui-row-editor-pencil {
     display: none;
 }
 
-.ui-treetable .ui-row-editor .ui-icon-check,
-.ui-treetable .ui-row-editor .ui-icon-close {
+.ui-treetable .ui-row-editor .ui-row-editor-check,
+.ui-treetable .ui-row-editor .ui-row-editor-close {
     display: none;
 }
 
-.ui-treetable .ui-row-editing .ui-row-editor .ui-icon-check,
-.ui-treetable .ui-row-editing .ui-row-editor .ui-icon-close {
+.ui-treetable .ui-row-editing .ui-row-editor .ui-row-editor-check,
+.ui-treetable .ui-row-editing .ui-row-editor .ui-row-editor-close {
     display: inline-block;
 }
 

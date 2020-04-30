@@ -1,18 +1,47 @@
-  /**
- * PrimeFaces Accordion Panel Widget
+/**
+ * __PrimeFaces AccordionPanel Widget__
+ * 
+ * The AccordionPanel is a container component that displays content in a stacked format.
+ * 
+ * @prop {JQuery} headers The DOM elements for the header of each tab.
+ * @prop {JQuery} panels The DOM elements for the content of each tab panel.
+ * @prop {JQuery} stateHolder The DOM elements for the hidden input storing which panels are expanded and collapsed.
+ * 
+ * @interface {PrimeFaces.widget.AccordionPanelCfg} cfg The configuration for the
+ * {@link  AccordionPanel| AccordionPanel widget}. You can access this configuration via
+ * {@link PrimeFaces.widget.BaseWidget.cfg|BaseWidget.cfg}. Please note that this configuration is usually meant to be
+ * read-only and should not be modified.
+ * @extends {PrimeFaces.widget.BaseWidgetCfg} cfg
+ * 
+ * @prop {number[]} cfg.active List of tabs that are currently active (open). Each item is a 0-based index of a tab.
+ * @prop {boolean} cfg.cache `true` if activating a dynamic tab should not load the contents from server again and use
+ * the cached contents; or `false` if the caching is disabled.
+ * @prop {string} cfg.collapsedIcon The icon class name for the collapsed icon.
+ * @prop {boolean} cfg.controlled `true` if a tab controller was specified for this widget; or `false` otherwise. A tab
+ * controller is a server side listener that decides whether a tab change or tab close should be allowed.
+ * @prop {boolean} cfg.dynamic `true` if the contents of each panel are loaded on-demand via AJAX; `false` otherwise.
+ * @prop {string} cfg.expandedIcon The icon class name for the expanded icon.
+ * @prop {boolean} cfg.multiple `true` if multiple tabs may be open at the same time; or `false` if opening one tab
+ * closes all other tabs.
+ * @prop {boolean} cfg.rtl `true` if the current text direction `rtl` (right-to-left); or `false` otherwise.
  */
 PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
-    
+
+    /**
+     * @override
+     * @inheritdoc
+     * @param {PrimeFaces.PartialWidgetCfg<TCfg>} cfg
+     */
     init: function(cfg) {
         this._super(cfg);
-        
+
         this.stateHolder = $(this.jqId + '_active');
         this.headers = this.jq.children('.ui-accordion-header');
         this.panels = this.jq.children('.ui-accordion-content');
         this.cfg.rtl = this.jq.hasClass('ui-accordion-rtl');
         this.cfg.expandedIcon = 'ui-icon-triangle-1-s';
         this.cfg.collapsedIcon = this.cfg.rtl ? 'ui-icon-triangle-1-w' : 'ui-icon-triangle-1-e';
-        
+
         this.initActive();
         this.bindEvents();
 
@@ -20,24 +49,35 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
             this.markLoadedPanels();
         }
     },
-            
-    initActive: function() {        
+
+    /**
+     * Called when this accordion panel is initialized. Reads the selected panels from the saved state, see also
+     * `saveState`.
+     * @private
+     */
+    initActive: function() {
         if(this.cfg.multiple) {
-            var indexes = this.stateHolder.val().split(',');
-            for(var i = 0; i < indexes.length; i++) {
-                indexes[i] = parseInt(indexes[i]);
+            this.cfg.active = [];
+
+            if (this.stateHolder.val().length > 0) {
+                var indexes = this.stateHolder.val().split(',');
+                for(var i = 0; i < indexes.length; i++) {
+                    this.cfg.active.push(parseInt(indexes[i]));
+                }
             }
-            
-            this.cfg.active = indexes;
         }
         else {
             this.cfg.active = parseInt(this.stateHolder.val());
         }
     },
-        
+
+    /**
+     * Binds all event listeners required by this accordion panel.
+     * @private
+     */
     bindEvents: function() {
         var $this = this;
-    
+
         this.headers.mouseover(function() {
             var element = $(this);
             if(!element.hasClass('ui-state-active')&&!element.hasClass('ui-state-disabled')) {
@@ -48,10 +88,10 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
             if(!element.hasClass('ui-state-active')&&!element.hasClass('ui-state-disabled')) {
                 element.removeClass('ui-state-hover');
             }
-        }).click(function(e) {            
+        }).click(function(e) {
             var element = $(this);
             if(!element.hasClass('ui-state-disabled')) {
-                var tabIndex = element.index() / 2;
+                var tabIndex = $this.headers.index(element);
 
                 if(element.hasClass('ui-state-active')) {
                     $this.unselect(tabIndex);
@@ -64,11 +104,15 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
 
             e.preventDefault();
         });
-        
+
         this.bindKeyEvents();
     },
-    
-    bindKeyEvents: function() {        
+
+    /**
+     * Sets up all event listeners for keyboard interactions.
+     * @private
+     */
+    bindKeyEvents: function() {
         this.headers.on('focus.accordion', function(){
             $(this).addClass('ui-tabs-outline');
         })
@@ -79,13 +123,17 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
             var keyCode = $.ui.keyCode,
             key = e.which;
 
-            if(key === keyCode.SPACE || key === keyCode.ENTER || key === keyCode.NUMPAD_ENTER) {
+            if(key === keyCode.SPACE || key === keyCode.ENTER) {
                 $(this).trigger('click');
                 e.preventDefault();
-            }       
+            }
         });
     },
-            
+
+    /**
+     * Marks the currently active panels as loaded; their content does not need to be retrieved from the server anymore.
+     * @private
+     */
     markLoadedPanels: function() {
         if(this.cfg.multiple) {
             for(var i = 0; i < this.cfg.active.length; i++) {
@@ -97,9 +145,12 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
                 this.markAsLoaded(this.panels.eq(this.cfg.active));
         }
     },
-    
+
     /**
-     *  Activates a tab with given index
+     * Activates (opens) the tab with given index. This may fail by returning `false`, such
+     * as when a callback is registered that prevent the tab from being opened.
+     * @param {number} index 0-based index of the tab to open. Must not be out of range.
+     * @return {boolean} `true` when the given panel is now active, `false` otherwise. 
      */
     select: function(index) {
         var panel = this.panels.eq(index);
@@ -126,41 +177,39 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
         }
         else {
             if(this.cfg.controlled) {
-                if(this.hasBehavior('tabChange')) {
-                    this.fireTabChangeEvent(panel);
-                }
+                this.fireTabChangeEvent(panel);
             }
             else {
                 this.show(panel);
-            
-                if(this.hasBehavior('tabChange')) {
-                    this.fireTabChangeEvent(panel);
-                }
+
+                this.fireTabChangeEvent(panel);
             }
-            
+
         }
 
         return true;
     },
-    
+
     /**
-     *  Deactivates a tab with given index
+     * Deactivates (closes) the tab with given index.
+     * @param {number} index 0-based index of the tab to close. Must not be out of range.
      */
     unselect: function(index) {
         if(this.cfg.controlled) {
-            if(this.hasBehavior('tabClose')) {
-                this.fireTabCloseEvent(index);
-            }
+            this.fireTabCloseEvent(index);
         }
         else {
             this.hide(index);
-            
-            if(this.hasBehavior('tabClose')) {
-                this.fireTabCloseEvent(index);
-            }
+
+            this.fireTabCloseEvent(index);
         }
     },
-    
+
+    /**
+     * Hides other panels and makes the given panel visible, such as by adding or removing the appropriate CSS classes.
+     * @private
+     * @param {JQuery} panel A tab panel to show.
+     */
     show: function(panel) {
         var _self = this;
 
@@ -186,7 +235,12 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
             _self.postTabShow(panel);
         });
     },
-    
+
+    /**
+     * Hides one of the panels of this accordion.
+     * @private
+     * @param {number} index 0-based index of the panel to hide.
+     */
     hide: function(index) {
         var _self = this,
         panel = this.panels.eq(index),
@@ -203,7 +257,13 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
         this.removeFromSelection(index);
         this.saveState();
     },
-    
+
+    /**
+     * The content of a tab panel may be loaded dynamically on demand via AJAX. This method loads the content of the
+     * given tab. Make sure to check first that this widget has got a dynamic tab panel (see
+     * {@link AccordionPanelCfg.dynamic}) and that the given tab panel is not loaded already (see {@link isLoaded}).
+     * @param {JQuery} panel A tab panel to load.
+     */
     loadDynamicTab: function(panel) {
         var $this = this,
         options = {
@@ -223,7 +283,7 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
 
                             if(this.cfg.cache) {
                                 this.markAsLoaded(panel);
-                            }   
+                            }
                         }
                     });
 
@@ -235,84 +295,111 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
         };
 
         if(this.hasBehavior('tabChange')) {
-            var tabChangeBehavior = this.cfg.behaviors['tabChange'];
-
-            tabChangeBehavior.call(this, options);
+            this.callBehavior('tabChange', options);
         }
         else {
-            PrimeFaces.ajax.AjaxRequest(options);
+            PrimeFaces.ajax.Request.handle(options);
         }
-    },
-    
-    fireTabChangeEvent : function(panel) {
-        var tabChangeBehavior = this.cfg.behaviors['tabChange'],
-        ext = {
-            params: [
-                {name: this.id + '_newTab', value: panel.attr('id')},
-                {name: this.id + '_tabindex', value: parseInt(panel.index() / 2)}
-            ]
-        };
-        
-        if(this.cfg.controlled) {
-            var $this = this;
-            ext.oncomplete = function(xhr, status, args) {
-                if(args.access && !args.validationFailed) {
-                    $this.show(panel);
-                }
-            }
-        }
-        
-        tabChangeBehavior.call(this, ext);
     },
 
-    fireTabCloseEvent : function(index) {
-        var panel = this.panels.eq(index),
-        tabCloseBehavior = this.cfg.behaviors['tabClose'],
-        ext = {
-            params: [
-                {name: this.id + '_tabId', value: panel.attr('id')},
-                {name: this.id + '_tabindex', value: parseInt(index / 2)}
-            ]
-        };
-        
-        if(this.cfg.controlled) {
-            var $this = this;
-            ext.oncomplete = function(xhr, status, args) {
-                if(args.access && !args.validationFailed) {
-                    $this.hide(index);
-                }
+    /**
+     * Handles the event listeners and behaviors when switching to a different tab.
+     * @private
+     * @param {JQueryStatic} panel The tab which is now active.
+     */
+    fireTabChangeEvent : function(panel) {
+        if(this.hasBehavior('tabChange')) {
+            var ext = {
+                params: [
+                    {name: this.id + '_newTab', value: panel.attr('id')},
+                    {name: this.id + '_tabindex', value: parseInt(panel.index() / 2)}
+                ]
+            };
+
+            if(this.cfg.controlled) {
+                var $this = this;
+                ext.oncomplete = function(xhr, status, args, data) {
+                    if(args.access && !args.validationFailed) {
+                        $this.show(panel);
+                    }
+                };
             }
+
+            this.callBehavior('tabChange', ext);
         }
-        
-        tabCloseBehavior.call(this, ext);
     },
-    
+
+    /**
+     * Handles the event listeners and behaviors when a tab was closed.
+     * @private
+     * @param {number} index 0-based index of the closed tab.
+     */
+    fireTabCloseEvent : function(index) {
+        if(this.hasBehavior('tabClose')) {
+            var panel = this.panels.eq(index),
+            ext = {
+                params: [
+                    {name: this.id + '_tabId', value: panel.attr('id')},
+                    {name: this.id + '_tabindex', value: parseInt(index)}
+                ]
+            };
+
+            if(this.cfg.controlled) {
+                var $this = this;
+                ext.oncomplete = function(xhr, status, args, data) {
+                    if(args.access && !args.validationFailed) {
+                        $this.hide(index);
+                    }
+                };
+            }
+
+            this.callBehavior('tabClose', ext);
+        }
+    },
+
+    /**
+     * When loading tab content dynamically, marks the content as loaded.
+     * @private
+     * @param {JQuery} panel A panel of this accordion that was loaded.
+     */
     markAsLoaded: function(panel) {
         panel.data('loaded', true);
     },
 
+    /**
+     * The content of a tab panel may be loaded dynamically on demand via AJAX. This method checks whether the content
+     * of a tab panel is currently loaded.
+     * @param {JQuery} panel A tab panel to check.
+     * @return {boolean} `true` if the content of the tab panel is loaded, `false` otherwise.
+     */
     isLoaded: function(panel) {
         return panel.data('loaded') == true;
     },
 
-    hasBehavior: function(event) {
-        if(this.cfg.behaviors) {
-            return this.cfg.behaviors[event] != undefined;
-        }
-
-        return false;
-    },
-
+    /**
+     * Adds the given panel node to the list of currently selected nodes.
+     * @private
+     * @param {string} nodeId ID of a panel node.
+     */
     addToSelection: function(nodeId) {
         this.cfg.active.push(nodeId);
     },
 
+    /**
+     * Removes the given panel node from the list of currently selected nodes.
+     * @private
+     * @param {string} nodeId ID of a panel node.
+     */
     removeFromSelection: function(nodeId) {
         this.cfg.active = $.grep(this.cfg.active, function(r) {
             return r != nodeId;
         });
     },
-    
+
+    /**
+     * Saves the current state of this widget, used for example to preserve the state during AJAX updates.
+     * @private
+     */
     saveState: function() {
         if(this.cfg.multiple)
             this.stateHolder.val(this.cfg.active.join(','));
@@ -320,7 +407,12 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
             this.stateHolder.val(this.cfg.active);
     },
 
-    postTabShow: function(newPanel) {            
+    /**
+     * Handles event listeners and behaviors when switching to a different tab.
+     * @private
+     * @param {JQuery} newPanel The new tab the is shown.
+     */
+    postTabShow: function(newPanel) {
         //Call user onTabShow callback
         if(this.cfg.onTabShow) {
             this.cfg.onTabShow.call(this, newPanel);
@@ -328,5 +420,5 @@ PrimeFaces.widget.AccordionPanel = PrimeFaces.widget.BaseWidget.extend({
 
         PrimeFaces.invokeDeferredRenders(this.id);
     }
-    
-});   
+
+});
